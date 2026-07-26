@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIGNAL // Password Strength & Breach Diagnostic</title>
+
+<!-- pulling in two google fonts. jetbrains mono for the terminal/data feel, inter for regular readable text -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- just a decorative scanline overlay, purely visual, does nothing functional -->
+<div class="scanline"></div>
+
+<main class="console">
+
+  <!-- top header with the little pulsing dot and the site name -->
+  <header class="console__header">
+    <div class="console__brand">
+      <span class="console__dot" aria-hidden="true"></span>
+      SIGNAL
+    </div>
+    <div class="console__subtitle">password diagnostic &amp; breach lookup</div>
+  </header>
+
+  <!-- this is the actual password input box up top -->
+  <section class="panel panel--input">
+    <label class="prompt-label" for="pw-input">
+      <span class="prompt-chevron">&gt;</span> enter a password to test
+    </label>
+    <div class="input-row">
+      <input
+        type="password"
+        id="pw-input"
+        class="prompt-input"
+        placeholder="type here. nothing leaves this tab until you run the breach check"
+        autocomplete="off"
+        spellcheck="false"
+      >
+      <!-- little eye icon button to toggle showing the password as plain text -->
+      <button id="toggle-visibility" class="icon-btn" type="button" aria-label="Show password">
+        <svg id="eye-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+      </button>
+    </div>
+  </section>
+
+  <!-- this whole section is the live readout, updates on every keystroke. all the actual logic lives in script.js -->
+  <section class="panel panel--readout" id="readout" aria-live="polite">
+
+    <!-- entropy row: shows the segmented meter plus the bits number -->
+    <div class="readout-row">
+      <div class="readout-label">entropy</div>
+      <div class="meter" id="meter">
+        <!-- the individual meter segments get built and lit up by script.js, this div just holds them -->
+        <div class="meter__segments" id="meter-segments"></div>
+      </div>
+      <div class="readout-value" id="entropy-value">- bits</div>
+    </div>
+
+    <!-- one word verdict, weak/moderate/strong, colored to match -->
+    <div class="readout-row">
+      <div class="readout-label">verdict</div>
+      <div class="verdict" id="verdict">awaiting input</div>
+    </div>
+
+    <!-- estimated time to brute force crack it, based on the entropy above -->
+    <div class="readout-row">
+      <div class="readout-label">crack time</div>
+      <div class="readout-value readout-value--mono" id="crack-time">-</div>
+    </div>
+
+    <!-- checklist of basic composition rules, each one gets a class toggled on/off by script.js -->
+    <div class="checklist" id="checklist">
+      <div class="check" data-check="length">
+        <span class="check__mark">○</span> at least 12 characters
+      </div>
+      <div class="check" data-check="upper">
+        <span class="check__mark">○</span> uppercase letter
+      </div>
+      <div class="check" data-check="lower">
+        <span class="check__mark">○</span> lowercase letter
+      </div>
+      <div class="check" data-check="digit">
+        <span class="check__mark">○</span> number
+      </div>
+      <div class="check" data-check="symbol">
+        <span class="check__mark">○</span> symbol
+      </div>
+      <div class="check" data-check="common">
+        <span class="check__mark">○</span> not a common password
+      </div>
+    </div>
+
+  </section>
+
+  <!-- this button is where the actual network request happens, everything above this is 100% local -->
+  <section class="panel panel--breach">
+    <button id="breach-btn" class="breach-btn" type="button" disabled>
+      run breach check
+    </button>
+    <div class="breach-result" id="breach-result"></div>
+    <p class="k-anon-note">
+      This sends only the first 5 characters of your password's SHA-1 hash to the
+      Have I Been Pwned API (k-anonymity). Your full password and full hash never
+      leave your browser.
+      <a href="#how-it-works">How this works ↓</a>
+    </p>
+  </section>
+
+  <!-- explains the k-anonymity trick in plain steps, this is basically the whole point of the project -->
+  <section class="panel panel--explainer" id="how-it-works">
+    <h2>How the breach check works, without leaking your password</h2>
+    <ol>
+      <li><strong>01 / hash locally</strong> your password gets hashed with SHA-1, right in your browser, using the Web Crypto API. The plaintext never touches the network.</li>
+      <li><strong>02 / truncate</strong> we only keep the first 5 characters of that hash.</li>
+      <li><strong>03 / query</strong> those 5 characters get sent to the HIBP API. It sends back every hash suffix in its database that starts with that prefix, usually a few hundred of them.</li>
+      <li><strong>04 / match locally</strong> your browser checks if your full hash suffix shows up in that list. The actual match happens on your machine, not on HIBP's server.</li>
+    </ol>
+    <p class="explainer-footnote">
+      This is the same k-anonymity model HIBP's own client tools use. It's a real
+      privacy-preserving pattern, not just a workaround.
+    </p>
+  </section>
+
+  <!-- second explainer panel, breaks down entropy, bits, and the crack time math for anyone curious -->
+  <section class="panel panel--explainer">
+    <h2>What "entropy" and "bits" actually mean</h2>
+    <p class="explainer-body">
+      Entropy is just a measure of how many guesses it'd take to land on your exact
+      password by brute force. Each "bit" doubles the number of possible passwords
+      an attacker has to try, so 10 bits means 1,024 possibilities, 40 bits means
+      about a trillion, and so on. More bits means more randomness, and more
+      randomness means it takes longer to crack.
+    </p>
+    <p class="explainer-body">
+      Where the number comes from: we look at the character set you actually used
+      (lowercase, uppercase, numbers, symbols) and your password's length, then
+      calculate length &times; log2(character set size). A longer password with a
+      mixed character set racks up bits fast. A long password using only lowercase
+      letters can still score lower than a short one that mixes in symbols and
+      numbers, because the character set matters as much as the length.
+    </p>
+    <p class="explainer-body">
+      For crack time, we take that entropy number and figure out the total pool
+      of possible passwords, which is 2 raised to the power of the entropy. Then
+      we assume an attacker can try 10 billion guesses a second (a standard
+      benchmark for an offline attack against a fast hash) and divide the pool
+      by that guess rate. On average an attacker finds a password somewhere in
+      the middle of the search space rather than at the very end, so we divide
+      by 2 again to land on a realistic average-case estimate.
+    </p>
+    <p class="explainer-body">
+      One honest caveat: that 10 billion guesses/sec number assumes a fast hash,
+      or no hashing at all. A site using something slow on purpose, like bcrypt
+      or Argon2, would push real crack times out dramatically further. Treat this
+      number as a conservative worst-case, not a universal truth.
+    </p>
+  </section>
+
+  <footer class="console__footer">
+    built as a portfolio project. no data gets stored, logged, or sent anywhere beyond that one HIBP range query
+  </footer>
+
+</main>
+
+<script src="script.js"></script>
+</body>
+</html>

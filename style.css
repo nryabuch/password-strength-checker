@@ -1,0 +1,482 @@
+/* ===== color palette, keeping all the colors as variables so they're easy to swap later =====
+   ink          #12151C   the dark background
+   paper        #E8E6DF   main text color
+   line-gray    #2A2F3A   borders and dividers
+   dim          #7A8091   secondary/quieter text
+   safe-cyan    #4FD1C5   used for strong password / pass state
+   signal-amber #F2B705   used for medium / caution state
+   alert-red    #E5484D   used for weak / breached state
+*/
+
+/* makes padding and borders count toward an element's width instead of adding to it, way easier to reason about sizing */
+* { box-sizing: border-box; }
+
+/* the actual css variables, referenced everywhere below as var(--name) */
+:root {
+  --ink: #12151C;
+  --ink-raised: #171B24;
+  --paper: #E8E6DF;
+  --line: #2A2F3A;
+  --dim: #7A8091;
+  --safe: #4FD1C5;
+  --caution: #F2B705;
+  --alert: #E5484D;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: 'Inter', sans-serif;
+}
+
+body {
+  min-height: 100vh;
+  padding: 48px 20px 80px;
+  position: relative;
+  overflow-x: hidden; /* stops the animations below from causing a horizontal scrollbar */
+}
+
+/* this is just a faint moving overlay of thin horizontal lines, purely decorative, no functional purpose */
+.scanline {
+  pointer-events: none; /* so it never blocks clicks on stuff underneath it */
+  position: fixed;
+  inset: -4px 0 0 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255,255,255,0.012) 0px,
+    rgba(255,255,255,0.012) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  z-index: 1;
+  animation: drift 9s linear infinite;
+}
+
+/* tiny vertical drift so the scanline feels alive instead of static */
+@keyframes drift {
+  from { transform: translateY(0); }
+  to { transform: translateY(4px); }
+}
+
+.console {
+  max-width: 620px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 2;
+}
+
+/* this is the glowing halo sitting behind the whole panel. the color comes from a css variable
+   that script.js updates live based on your password's strength, so the glow shifts red to amber
+   to cyan as you type */
+.console::before {
+  content: "";
+  position: absolute;
+  inset: -60px -20px;
+  background: radial-gradient(
+    ellipse 60% 40% at 50% 30%,
+    var(--glow-color, var(--line)),
+    transparent 70%
+  );
+  opacity: 0.35;
+  filter: blur(10px);
+  z-index: -1;
+  transition: background 0.6s ease, opacity 0.6s ease;
+  pointer-events: none;
+}
+
+.console__header {
+  margin-bottom: 32px;
+}
+
+/* fade and slide up animation used for the page load, panels stagger in one after another below */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.console__header,
+.panel {
+  animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* staggering each panel's animation delay so they cascade in instead of all popping at once */
+.console__header { animation-delay: 0s; }
+.panel--input { animation-delay: 0.06s; }
+.panel--readout { animation-delay: 0.12s; }
+.panel--breach { animation-delay: 0.18s; }
+.panel--explainer { animation-delay: 0.24s; }
+
+.console__brand {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: 0.08em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* the little dot next to the SIGNAL logo, pulses gently forever */
+.console__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--safe);
+  box-shadow: 0 0 8px var(--safe);
+  animation: pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.console__subtitle {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--dim);
+  margin-top: 4px;
+  letter-spacing: 0.02em;
+}
+
+/* base card style, every section on the page uses this */
+.panel {
+  background: var(--ink-raised);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 24px;
+  margin-bottom: 16px;
+}
+
+.prompt-label {
+  display: block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--dim);
+  margin-bottom: 12px;
+}
+
+.prompt-chevron {
+  color: var(--safe);
+}
+
+.input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.prompt-input {
+  flex: 1;
+  background: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 14px 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 15px;
+  color: var(--paper);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.prompt-input::placeholder {
+  color: #4A5062;
+}
+
+.prompt-input:focus {
+  border-color: var(--safe);
+}
+
+/* the little eye icon button that toggles password visibility */
+.icon-btn {
+  background: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  width: 46px;
+  color: var(--dim);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.icon-btn:hover {
+  color: var(--paper);
+  border-color: var(--dim);
+}
+
+/* keyboard focus rings, keeps the site usable for people tabbing through instead of clicking */
+.icon-btn:focus-visible,
+.prompt-input:focus-visible,
+.breach-btn:focus-visible {
+  outline: 2px solid var(--safe);
+  outline-offset: 2px;
+}
+
+/* each row in the readout panel (entropy, verdict, crack time) shares this grid layout */
+.readout-row {
+  display: grid;
+  grid-template-columns: 90px 1fr auto;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+}
+
+.readout-label {
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 12px;
+}
+
+.readout-value {
+  font-size: 13px;
+  color: var(--paper);
+  text-align: right;
+  white-space: nowrap;
+  transition: color 0.3s ease; /* smooths out the color change when the number updates */
+}
+
+/* the signature visual element of the whole site: a segmented bar instead of a plain gradient
+   progress bar, meant to feel like a signal meter or vu meter rather than a generic loading bar */
+.meter {
+  display: flex;
+  gap: 3px;
+  height: 18px;
+}
+
+.meter__segments {
+  display: flex;
+  gap: 3px;
+  width: 100%;
+}
+
+/* individual segment, script.js lights these up one by one and sets their background color */
+.meter__seg {
+  flex: 1;
+  background: var(--line);
+  border-radius: 1px;
+  transition: background 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+  transform-origin: bottom;
+}
+
+/* slight scale bump on lit segments so they feel like they're "powering on" */
+.meter__seg.lit {
+  transform: scaleY(1.08);
+}
+
+/* little bounce animation for checklist marks when they flip from empty circle to filled dot */
+@keyframes popIn {
+  0% { transform: scale(0.85); opacity: 0.4; }
+  60% { transform: scale(1.08); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.check.just-passed .check__mark {
+  animation: popIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.verdict {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--dim);
+  text-align: right;
+  grid-column: 2 / span 2;
+}
+
+/* the 6 little pass/fail rules under the meter, laid out in 2 columns */
+.checklist {
+  margin-top: 8px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
+}
+
+.check {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--dim);
+  transition: color 0.15s ease;
+}
+
+.check__mark {
+  display: inline-block;
+  width: 16px;
+}
+
+/* once a check passes, script.js adds this class and the text brightens up */
+.check.pass {
+  color: var(--paper);
+}
+
+.check.pass .check__mark {
+  color: var(--safe);
+}
+
+.breach-btn {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--safe);
+  color: var(--safe);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  padding: 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+/* disabled until you actually type something, see script.js */
+.breach-btn:disabled {
+  border-color: var(--line);
+  color: var(--dim);
+  cursor: not-allowed;
+}
+
+.breach-btn:not(:disabled):hover {
+  background: var(--safe);
+  color: var(--ink);
+}
+
+.breach-result {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  margin-top: 14px;
+  min-height: 20px;
+}
+
+.breach-result.safe { color: var(--safe); }
+.breach-result.breached { color: var(--alert); }
+
+/* while the network request is happening, this holds the little spinner plus the loading text */
+.breach-result.pending {
+  color: var(--dim);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* the tiny spinning ring shown during the breach check, styled to look like a radar sweep */
+.radar-spin {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  border-top-color: var(--safe);
+  flex-shrink: 0;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* little fade-up when the final safe/breached result appears */
+@keyframes resultPopIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.breach-result.safe, .breach-result.breached {
+  animation: resultPopIn 0.3s ease both;
+}
+
+.k-anon-note {
+  font-size: 12.5px;
+  color: var(--dim);
+  line-height: 1.5;
+  margin: 16px 0 0;
+}
+
+.k-anon-note a {
+  color: var(--dim);
+  text-decoration: underline;
+}
+
+/* shared styles for both explainer sections (the k-anonymity one and the entropy one) */
+.panel--explainer h2 {
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 16px;
+}
+
+.panel--explainer ol {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.panel--explainer li {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--dim);
+}
+
+.panel--explainer li strong {
+  color: var(--paper);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+/* paragraphs in the entropy/crack-time explainer section */
+.explainer-body {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--dim);
+  margin: 0 0 12px;
+}
+
+.explainer-body:last-child {
+  margin-bottom: 0;
+}
+
+.explainer-footnote {
+  font-size: 12.5px;
+  color: var(--dim);
+  border-top: 1px solid var(--line);
+  margin: 16px 0 0;
+  padding-top: 14px;
+}
+
+.console__footer {
+  text-align: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  color: #4A5062;
+  margin-top: 32px;
+  letter-spacing: 0.02em;
+}
+
+/* if someone's os is set to reduce motion, kill all the animations and transitions out of respect for that */
+@media (prefers-reduced-motion: reduce) {
+  .console__dot,
+  .scanline,
+  .console__header,
+  .panel,
+  .check__mark,
+  .radar-spin,
+  .breach-result {
+    animation: none !important;
+  }
+  * { transition: none !important; }
+}
+
+/* small screen tweaks so the checklist and readout rows don't feel cramped on mobile */
+@media (max-width: 480px) {
+  .checklist { grid-template-columns: 1fr; }
+  .readout-row { grid-template-columns: 70px 1fr; }
+  .verdict { grid-column: 1 / -1; text-align: left; margin-top: 4px; }
+}

@@ -2,7 +2,7 @@
 
 A little tool that checks how strong your password is and whether it's shown up in any known data breaches. No backend, everything runs in the browser.
 
-[Live demo](#) (link goes here once I deploy it)
+[Live demo](https://nryabuch.github.io/password-strength-checker/)
 
 ## What it does
 

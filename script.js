@@ -1,6 +1,4 @@
 // just a small sample list of super common passwords for the "not a common password" check.
-// if you want to make this way more thorough, swap this out for a real wordlist like the
-// rockyou.txt top 10k, there's a link to one in the readme
 const COMMON_PASSWORDS = new Set([
   "123456", "123456789", "password", "12345678", "qwerty", "111111",
   "123123", "1234567890", "1234567", "password1", "12345", "iloveyou",
@@ -24,7 +22,7 @@ const els = {
 const SEGMENT_COUNT = 10;
 
 // building the 10 little bars for the meter once when the page loads, instead of hardcoding
-// them in the html. easier to change SEGMENT_COUNT later if you want more or fewer bars
+// them in the html. easier to change SEGMENT_COUNT later
 for (let i = 0; i < SEGMENT_COUNT; i++) {
   const seg = document.createElement("div");
   seg.className = "meter__seg";
@@ -32,7 +30,7 @@ for (let i = 0; i < SEGMENT_COUNT; i++) {
 }
 const segments = Array.from(els.meterSegments.children);
 
-// this is the actual entropy math. basically: how many different characters could show up
+// this is the  entropy math, basically: how many diff characters could show up
 // at each position (charsetSize), times how many positions there are (password.length),
 // converted into bits with log2. more variety and more length both push this number up
 function calcEntropy(password) {
@@ -161,7 +159,7 @@ function updateVerdict(entropyBits, isCommon) {
 }
 
 // these two variables track the number currently animating on screen, so if you keep typing
-// fast we can smoothly animate from wherever we currently are to the new target, instead of
+// fast it animates smoothly from wherever you currently are to the new target, instead of
 // the number just jumping around
 let displayedEntropy = 0;
 let entropyAnimFrame = null;
@@ -219,7 +217,7 @@ els.toggleBtn.addEventListener("click", () => {
 // the rest of it against the results locally in the browser =====
 
 // hashes the password with sha1 using the browser's built in crypto api. this never touches
-// the network, it all happens right here on the user's machine
+// the network, it all happens right here on user's machine
 async function sha1(text) {
   const encoder = new TextEncoder();
   const data = encoder.encode(text);
